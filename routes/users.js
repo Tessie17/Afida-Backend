@@ -1,23 +1,24 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-const Joi = require('joi');
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const User = require("../models/User");
+const Joi = require("joi");
 
 const registerSchema = Joi.object({
   name: Joi.string().min(3).required(),
   email: Joi.string().email().required(),
   password: Joi.string().min(6).required(),
-  smartWalletAddress: Joi.string().required()
+  smartWalletAddress: Joi.string().required(),
 });
 
 const loginSchema = Joi.object({
   email: Joi.string().email().required(),
-  password: Joi.string().min(6).required()
+  password: Joi.string().min(6).required(),
 });
 
-router.post('/register', async (req, res) => {
+router.post("/register", async (req, res) => {
+  console.log("Registration attempt:", req.body);
   const { error } = registerSchema.validate(req.body);
   if (error) return res.status(400).json({ message: error.details[0].message });
 
@@ -25,26 +26,28 @@ router.post('/register', async (req, res) => {
 
   try {
     let user = await User.findOne({ email });
-    if (user) return res.status(400).json({ message: 'User already exists' });
+    if (user) return res.status(400).json({ message: "User already exists" });
 
     user = new User({
       name,
       email,
       password,
-      smartWalletAddress
+      smartWalletAddress,
     });
 
     await user.save();
 
-    const token = jwt.sign({ id: user._id }, process.env.TOKEN_SECRET, { expiresIn: '1h' });
-    res.header('Authorization', token).json({ token });
+    const token = jwt.sign({ id: user._id }, process.env.TOKEN_SECRET, {
+      expiresIn: "1h",
+    });
+    res.status(201).json({ token, message: "User registered successfully" });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
+    console.error("Registration error:", err.message);
+    res.status(500).json({ message: "Server Error during registration" });
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post("/login", async (req, res) => {
   const { error } = loginSchema.validate(req.body);
   if (error) return res.status(400).json({ message: error.details[0].message });
 
@@ -52,17 +55,19 @@ router.post('/login', async (req, res) => {
 
   try {
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: 'Invalid Credentials' });
+    if (!user) return res.status(400).json({ message: "Invalid Credentials" });
 
     const isMatch = await user.comparePassword(password);
-    if (!isMatch) return res.status(400).json({ message: 'Invalid Credentials' });
+    if (!isMatch)
+      return res.status(400).json({ message: "Invalid Credentials" });
 
-    // Create and assign a token
-    const token = jwt.sign({ id: user._id }, process.env.TOKEN_SECRET, { expiresIn: '1h' });
-    res.header('Authorization', token).json({ token, smartWalletAddress: user.smartWalletAddress });
+    const token = jwt.sign({ id: user._id }, process.env.TOKEN_SECRET, {
+      expiresIn: "1h",
+    });
+    res.json({ token, smartWalletAddress: user.smartWalletAddress });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
+    console.error("Login error:", err.message);
+    res.status(500).json({ message: "Server Error during login" });
   }
 });
 
